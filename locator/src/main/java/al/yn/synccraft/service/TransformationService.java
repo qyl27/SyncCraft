@@ -39,7 +39,7 @@ public class TransformationService implements ITransformationService {
 
     @Override
     public List<Resource> completeScan(IModuleLayerManager layerManager) {
-        var list = new ArrayList<ITransformationService.Resource>();
+        var list = new ArrayList<Resource>();
         var jarList = new ArrayList<SecureJar>();
         try {
 //            jarList.add(new SyncCraftJar(new File(this.getClass().getProtectionDomain().getCodeSource().getLocation().toURI()).toPath()));

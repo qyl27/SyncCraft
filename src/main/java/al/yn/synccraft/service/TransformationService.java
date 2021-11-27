@@ -2,15 +2,18 @@ package al.yn.synccraft.service;
 
 import cpw.mods.jarhandling.SecureJar;
 import cpw.mods.modlauncher.api.*;
+import cpw.mods.niofs.union.UnionFileSystem;
+import org.apache.logging.log4j.LogManager;
 
-import java.io.File;
 import java.net.URISyntaxException;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
 public class TransformationService implements ITransformationService {
     public TransformationService() {
+        LogManager.getLogger("SC").info("Transformation service.");
         System.out.println("Transformation service.");
     }
 
@@ -39,7 +42,8 @@ public class TransformationService implements ITransformationService {
         var list = new ArrayList<ITransformationService.Resource>();
         var jarList = new ArrayList<SecureJar>();
         try {
-            jarList.add(new SyncCraftJar(new File(this.getClass().getProtectionDomain().getCodeSource().getLocation().toURI()).toPath()));
+//            jarList.add(new SyncCraftJar(new File(this.getClass().getProtectionDomain().getCodeSource().getLocation().toURI()).toPath()));
+            jarList.add(new SyncCraftJar(((UnionFileSystem) Paths.get(this.getClass().getProtectionDomain().getCodeSource().getLocation().toURI()).getFileSystem()).getPrimaryPath()));
         } catch (URISyntaxException ex) {
             ex.printStackTrace();
         }

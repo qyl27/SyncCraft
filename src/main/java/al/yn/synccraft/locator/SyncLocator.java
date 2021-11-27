@@ -1,4 +1,4 @@
-package al.yn.synccraft;
+package al.yn.synccraft.locator;
 
 import al.yn.synccraft.data.Config;
 import al.yn.synccraft.data.ModManifest;
@@ -42,6 +42,8 @@ public final class SyncLocator implements IModLocator {
     private IModLocator origin;
 
     public SyncLocator() throws Exception {
+        LOG.debug("Initializing SyncCraft.");
+
         // Load configs.
         gameDirectory = Launcher.INSTANCE.environment()
                 .getProperty(IEnvironment.Keys.GAMEDIR.get())
@@ -65,9 +67,12 @@ public final class SyncLocator implements IModLocator {
         try (var stream = new URL(config.server + "/mod_manifest.json").openStream()) {
             var manifestString = IOUtils.toString(stream, StandardCharsets.UTF_8);
             modManifest = GSON.fromJson(manifestString, ModManifest.class);
+        } catch (IOException ex) {
+            System.out.println(ex);
         }
 
         if (!config.serverName.equals(modManifest.name)) {
+            System.out.println("Mismatched server name.");
             throw new Exception("Mismatched server name.");
         }
 

@@ -1,10 +1,16 @@
 buildscript {
     repositories {
         // These repositories are only for Gradle plugins, put any other repositories in the repository block further below
-        maven { url = 'https://maven.minecraftforge.net' }
+        maven {
+            url = 'https://maven.minecraftforge.net'
+        }
         mavenCentral()
+        maven {
+            url = "https://plugins.gradle.org/m2/"
+        }
     }
     dependencies {
+        classpath "gradle.plugin.com.github.johnrengelman:shadow:7.1.0"
         classpath group: 'net.minecraftforge.gradle', name: 'ForgeGradle', version: '5.1.+', changing: true
     }
 }
@@ -20,6 +26,7 @@ allprojects {
 // Only edit below this line, the above code adds and enables the necessary things for Forge to be setup.
     apply plugin: 'eclipse'
     apply plugin: 'maven-publish'
+    apply plugin: "com.github.johnrengelman.shadow"
 
 // Mojang ships Java 16 to end users in 1.17+ instead of Java 8 in 1.16 or lower, so your mod should target Java 16.
     java.toolchain.languageVersion = JavaLanguageVersion.of(16)
@@ -156,8 +163,7 @@ allprojects {
                     "Specification-Version" : "1", // We are version 1 of ourselves
                     "Implementation-Title"  : project.name,
                     "Implementation-Version": project.jar.archiveVersion,
-                    "Implementation-Vendor" : "qyl27(Infinity_rain)",
-                    "Automatic-Module-Name" : "synccraft"
+                    "Implementation-Vendor" : "qyl27(Infinity_rain)"
             ])
         }
     }
@@ -188,10 +194,18 @@ configurations {
 }
 
 dependencies {
-    library project(":locator"), {
+    library project(":sync"), {
         transitive = false
     }
 }
+
+shadowJar {
+    dependencies {
+        include project(":sync")
+    }
+}
+
+jar.finalizedBy('shadowJar')
 
 minecraft.runs.all {
     lazyToken('minecraft_classpath') {

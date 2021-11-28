@@ -5,5 +5,5 @@ public class Config {
 
     public String serverName = "SyncCraft";
 
-    public String server = "127.0.0.1:25565";
+    public String server = "http://127.0.0.1:25565";
 }

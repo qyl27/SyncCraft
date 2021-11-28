@@ -1,4 +1,4 @@
-package al.yn.synccraft.data;
+package al.yn.synccraft.sync.data;
 
 public class Config {
     public String directory = "synccraft_mods";

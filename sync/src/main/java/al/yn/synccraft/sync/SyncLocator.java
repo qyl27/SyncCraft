@@ -1,10 +1,11 @@
-package al.yn.synccraft.locator;
+package al.yn.synccraft.sync;
 
-import al.yn.synccraft.data.Config;
-import al.yn.synccraft.data.ModManifest;
+import al.yn.synccraft.sync.data.Config;
+import al.yn.synccraft.sync.data.ModManifest;
 import com.google.gson.Gson;
 import cpw.mods.modlauncher.Launcher;
 import cpw.mods.modlauncher.api.IEnvironment;
+import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.forgespi.Environment;
 import net.minecraftforge.forgespi.locating.IModFile;
 import net.minecraftforge.forgespi.locating.IModLocator;
@@ -42,8 +43,19 @@ public final class SyncLocator implements IModLocator {
     private IModLocator origin;
 
     public SyncLocator() throws Exception {
-        LOG.debug("Initializing SyncCraft.");
+        LOG.info("Initializing SyncCraft.");
 
+        var dist = Launcher.INSTANCE.environment().getProperty(Environment.Keys.DIST.get());
+        assert dist != null && dist.isPresent();
+        if (dist.get() == Dist.CLIENT) {
+            onClient();
+        } else {
+            LOG.error("Do NOT put me in server mods folder for now.");
+            throw new Exception("Not supported server for now.");
+        }
+    }
+
+    private void onClient() throws Exception {
         // Load configs.
         gameDirectory = Launcher.INSTANCE.environment()
                 .getProperty(IEnvironment.Keys.GAMEDIR.get())
@@ -68,15 +80,20 @@ public final class SyncLocator implements IModLocator {
             var manifestString = IOUtils.toString(stream, StandardCharsets.UTF_8);
             modManifest = GSON.fromJson(manifestString, ModManifest.class);
         } catch (IOException ex) {
-            System.out.println(ex);
+            LOG.error("Cannot fatch mod manifest file.");
+            cleanUp(modDirectory);
+            return;
         }
 
         if (!config.serverName.equals(modManifest.name)) {
-            System.out.println("Mismatched server name.");
-            throw new Exception("Mismatched server name.");
+            LOG.error("Mismatched server name, so we will not work for you.");
+            cleanUp(modDirectory);
+            return;
         }
 
         // Check mod lists.
+        LOG.info("Checking mods.");
+
         var modsLocal = modDirectory.toFile().listFiles();
 
         var modsOnServer = new ArrayList<>(Arrays.stream(modManifest.mods).toList());
@@ -100,21 +117,39 @@ public final class SyncLocator implements IModLocator {
             })) {
                 var result = modFile.delete();
                 if (!result) {
-                    throw new Exception("Cannot delete mismatched mod file " + modFile.getName() + " .");
+                    LOG.error("Cannot delete mismatched mod file " + modFile.getName() + " .");
                 }
             }
         }
 
+        LOG.info("Ready for sync mods.");
         for (var mod : modsToDownload) {
             // Download mods.
             FileUtils.copyURLToFile(new URL(config.server + "/mods/" + mod.name),
                     new File(modDirectory.toFile(), mod.name));
         }
 
+        LOG.info("All mods are update to date.");
+    }
+
+    private void cleanUp(Path path) throws Exception {
+        Files.delete(path);
     }
 
     @Override
     public List<IModFile> scanMods() {
+//        var mods = new ArrayList<IModFile>();
+//
+//        Path path = null;
+//        try {
+//            path = ((UnionFileSystem) Paths.get(this.getClass().getProtectionDomain()
+//                    .getCodeSource().getLocation().toURI()).getFileSystem()).getPrimaryPath();
+//        } catch (URISyntaxException ex) {
+//            ex.printStackTrace();
+//        }
+//
+//        mods.add(ModFileFactory.FACTORY.build(SecureJar.from(path), this, ))
+
         return origin.scanMods();
     }
 

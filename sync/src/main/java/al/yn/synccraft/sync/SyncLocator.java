@@ -29,7 +29,7 @@ import java.util.Map;
 import java.util.function.Consumer;
 
 public final class SyncLocator implements IModLocator {
-    private static final Logger LOG = LogManager.getLogger("SyncLocator");
+    private static final Logger LOG = LogManager.getLogger("SyncCraft");
     private static final Gson GSON = new Gson();
 
     private Path gameDirectory;

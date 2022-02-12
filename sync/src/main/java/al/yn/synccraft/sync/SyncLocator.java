@@ -127,6 +127,7 @@ public final class SyncLocator implements IModLocator {
             // Download mods.
             FileUtils.copyURLToFile(new URL(config.server + "/mods/" + mod.name),
                     new File(modDirectory.toFile(), mod.name));
+            LOG.info("Downloaded " + mod.name + " from remote server.");
         }
 
         LOG.info("All mods are update to date.");

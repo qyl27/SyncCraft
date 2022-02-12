@@ -76,11 +76,11 @@ public final class SyncLocator implements IModLocator {
         }
 
         // Load mod manifest.
-        try (var stream = new URL(config.server + "/mod_manifest.json").openStream()) {
+        try (var stream = new URL(config.server + "/mods_manifest.json").openStream()) {
             var manifestString = IOUtils.toString(stream, StandardCharsets.UTF_8);
             modManifest = GSON.fromJson(manifestString, ModManifest.class);
         } catch (IOException ex) {
-            LOG.error("Cannot fatch mod manifest file.");
+            LOG.error("Cannot fatch mods manifest file.");
             cleanUp(modDirectory);
             return;
         }

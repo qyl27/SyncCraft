@@ -42,6 +42,8 @@ public final class SyncLocator implements IModLocator {
 
     private IModLocator origin;
 
+    private boolean shouldLoadSyncedMods = false;
+
     public SyncLocator() throws Exception {
         LOG.info("Initializing SyncCraft.");
 
@@ -56,6 +58,8 @@ public final class SyncLocator implements IModLocator {
     }
 
     private void onClient() throws Exception {
+        shouldLoadSyncedMods = true;
+
         // Load configs.
         gameDirectory = Launcher.INSTANCE.environment()
                 .getProperty(IEnvironment.Keys.GAMEDIR.get())
@@ -81,13 +85,16 @@ public final class SyncLocator implements IModLocator {
             modManifest = GSON.fromJson(manifestString, ModManifest.class);
         } catch (IOException ex) {
             LOG.error("Cannot fatch mods manifest file.");
-            cleanUp(modDirectory);
+            // No delete mod directory, but not loading.
+//            cleanUp(modDirectory);
+            shouldLoadSyncedMods = false;
             return;
         }
 
         if (!config.serverName.equals(modManifest.name)) {
             LOG.error("Mismatched server name, so we will not work for you.");
-            cleanUp(modDirectory);
+//            cleanUp(modDirectory);
+            shouldLoadSyncedMods = false;
             return;
         }
 
@@ -118,6 +125,8 @@ public final class SyncLocator implements IModLocator {
                 var result = modFile.delete();
                 if (!result) {
                     LOG.error("Cannot delete mismatched mod file " + modFile.getName() + " .");
+
+                    shouldLoadSyncedMods = false;
                 }
             }
         }
@@ -151,7 +160,11 @@ public final class SyncLocator implements IModLocator {
 //
 //        mods.add(ModFileFactory.FACTORY.build(SecureJar.from(path), this, ))
 
-        return origin.scanMods();
+        if (shouldLoadSyncedMods) {
+            return origin.scanMods();
+        } else {
+            return new ArrayList<>();
+        }
     }
 
     @Override
@@ -161,7 +174,9 @@ public final class SyncLocator implements IModLocator {
 
     @Override
     public void scanFile(IModFile modFile, Consumer<Path> pathConsumer) {
-        origin.scanFile(modFile, pathConsumer);
+        if (shouldLoadSyncedMods) {
+            origin.scanFile(modFile, pathConsumer);
+        }
     }
 
     @Override
@@ -169,7 +184,7 @@ public final class SyncLocator implements IModLocator {
         origin = Launcher.INSTANCE.environment()
                 .getProperty(Environment.Keys.MODDIRECTORYFACTORY.get())
                 .orElseThrow(() -> new RuntimeException("There is no Mod Directory Factory!"))
-                .build(modDirectory, "Syncing Mods Directory");
+                .build(modDirectory, "SyncCraft Mods Directory");
     }
 
     @Override

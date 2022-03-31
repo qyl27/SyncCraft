@@ -113,8 +113,8 @@ public final class SyncLocator implements IModLocator {
         LOG.info("Ready for sync configs.");
         for (var conf : shouldDownload) {
             // Download mods.
-            FileUtils.copyURLToFile(new URL(config.server + "/configs/" + conf.path),
-                    new File(configsDirectory, conf.path));
+            FileUtils.copyURLToFile(new URL(config.server + "/" + conf.path.replace("\\", "/")),
+                    new File(gameDirectory.toFile(), conf.path));
             LOG.info("Downloaded config " + conf.path + " from remote server.");
         }
     }
@@ -122,13 +122,13 @@ public final class SyncLocator implements IModLocator {
     private void syncMods() throws Exception {
         // Check mod lists.
         LOG.info("Checking mods.");
-        var shouldDownload = checkEntries(modDirectory.toFile(),
+        var shouldDownload = checkEntries(gameDirectory.resolve("mods").toFile(),
                 Arrays.stream(modManifest.mods).toList(), true);
 
         LOG.info("Ready for sync mods.");
         for (var mod : shouldDownload) {
             // Download mods.
-            FileUtils.copyURLToFile(new URL(config.server + "/mods/" + mod.path),
+            FileUtils.copyURLToFile(new URL(config.server + "/mods/" + mod.path.replace("\\", "/")),
                     new File(modDirectory.toFile(), mod.path));
             LOG.info("Downloaded mod " + mod.path + " from remote server.");
         }

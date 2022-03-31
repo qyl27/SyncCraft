@@ -4,6 +4,9 @@ public class Config {
     public String directory = "synccraft_mods";
 
     public String serverName = "SyncCraft";
+    public String server = "http://localhost:35196";
 
-    public String server = "http://127.0.0.1:25565";
+    public boolean syncConfig = true;
+
+    public boolean weakSync = false;
 }

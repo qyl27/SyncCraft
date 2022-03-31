@@ -6,6 +6,7 @@ import com.google.gson.Gson;
 import cpw.mods.modlauncher.Launcher;
 import cpw.mods.modlauncher.api.IEnvironment;
 import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.fml.loading.moddiscovery.ModJarMetadata;
 import net.minecraftforge.forgespi.Environment;
 import net.minecraftforge.forgespi.locating.IModFile;
 import net.minecraftforge.forgespi.locating.IModLocator;
@@ -22,10 +23,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.function.Consumer;
 
 public final class SyncLocator implements IModLocator {
@@ -45,15 +43,15 @@ public final class SyncLocator implements IModLocator {
     private boolean shouldLoadSyncedMods = false;
 
     public SyncLocator() throws Exception {
-        LOG.info("Initializing SyncCraft.");
+        LOG.info("Initializing SyncCraft v1.1.0.");
 
         var dist = Launcher.INSTANCE.environment().getProperty(Environment.Keys.DIST.get());
         assert dist != null && dist.isPresent();
         if (dist.get() == Dist.CLIENT) {
             onClient();
         } else {
-            LOG.error("Do NOT put me in server mods folder for now.");
-            throw new Exception("Not supported server for now.");
+            LOG.error("Not supported server yet.");
+            throw new Exception("Not supported server yet.");
         }
     }
 
@@ -84,7 +82,7 @@ public final class SyncLocator implements IModLocator {
             var manifestString = IOUtils.toString(stream, StandardCharsets.UTF_8);
             modManifest = GSON.fromJson(manifestString, ModManifest.class);
         } catch (IOException ex) {
-            LOG.error("Cannot fatch mods manifest file.");
+            LOG.error("Cannot fetch mods manifest file. Load normally.");
             // No delete mod directory, but not loading.
 //            cleanUp(modDirectory);
             shouldLoadSyncedMods = false;
@@ -98,52 +96,96 @@ public final class SyncLocator implements IModLocator {
             return;
         }
 
+        syncMods();
+        syncConfigs();
+
+        LOG.info("All the mods and configs are update to date.");
+    }
+
+    private void syncConfigs() throws Exception {
+        var configsDirectory = gameDirectory.resolve("config").toFile();
+
+        // Check mod lists.
+        LOG.info("Checking configs.");
+        var shouldDownload = checkEntries(configsDirectory,
+                Arrays.stream(modManifest.configs).toList(), false);
+
+        LOG.info("Ready for sync configs.");
+        for (var conf : shouldDownload) {
+            // Download mods.
+            FileUtils.copyURLToFile(new URL(config.server + "/configs/" + conf.path),
+                    new File(configsDirectory, conf.path));
+            LOG.info("Downloaded config " + conf.path + " from remote server.");
+        }
+    }
+
+    private void syncMods() throws Exception {
         // Check mod lists.
         LOG.info("Checking mods.");
+        var shouldDownload = checkEntries(modDirectory.toFile(),
+                Arrays.stream(modManifest.mods).toList(), true);
 
-        var modsLocal = modDirectory.toFile().listFiles();
+        LOG.info("Ready for sync mods.");
+        for (var mod : shouldDownload) {
+            // Download mods.
+            FileUtils.copyURLToFile(new URL(config.server + "/mods/" + mod.path),
+                    new File(modDirectory.toFile(), mod.path));
+            LOG.info("Downloaded mod " + mod.path + " from remote server.");
+        }
+    }
 
-        var modsOnServer = new ArrayList<>(Arrays.stream(modManifest.mods).toList());
-        var modsToDownload = new ArrayList<>(modsOnServer);
+    private List<ModManifest.Entry> checkEntries(File dir, List<ModManifest.Entry> entries, boolean isMod) {
+        var filesLocal = enumerateFiles(dir, !isMod, new HashSet<>());
 
-        for (var modFile : Arrays.stream(modsLocal).toList()) {
-            // Remove mismatched mod files.
-            if (modsOnServer.stream().noneMatch(m -> {
-                try {
-                    if (m.name.equals(modFile.getName())
-                            && m.checksum.equalsIgnoreCase(
-                            DigestUtils.sha256Hex(FileUtils.readFileToByteArray(modFile)))) {
-                        modsToDownload.remove(m);
-                        return true;
-                    } else {
+        var shouldDownload = new ArrayList<>(entries);
+
+        // Check if weak sync.
+        if (!config.weakSync) {
+            for (var file : filesLocal) {
+                // Remove mismatched files.
+                if (entries.stream().noneMatch(m -> {
+                    try {
+                        if (m.path.equals(file.getName())
+                                && m.checksum.equalsIgnoreCase(
+                                DigestUtils.sha256Hex(FileUtils.readFileToByteArray(file)))) {
+                            shouldDownload.remove(m);
+                            return true;
+                        } else {
+                            return false;
+                        }
+                    } catch (IOException ignored) {
                         return false;
                     }
-                } catch (IOException ignored) {
-                    return false;
-                }
-            })) {
-                var result = modFile.delete();
-                if (!result) {
-                    LOG.error("Cannot delete mismatched mod file " + modFile.getName() + " .");
-
-                    shouldLoadSyncedMods = false;
+                })) {
+                    var result = file.delete();
+                    if (!result) {
+                        LOG.error("Cannot delete mismatched file " + file.getName() + " .");
+                        shouldLoadSyncedMods = false;
+                    }
                 }
             }
         }
-
-        LOG.info("Ready for sync mods.");
-        for (var mod : modsToDownload) {
-            // Download mods.
-            FileUtils.copyURLToFile(new URL(config.server + "/mods/" + mod.name),
-                    new File(modDirectory.toFile(), mod.name));
-            LOG.info("Downloaded " + mod.name + " from remote server.");
-        }
-
-        LOG.info("All mods are update to date.");
+        return shouldDownload;
     }
 
     private void cleanUp(Path path) throws Exception {
-        Files.delete(path);
+        Files.deleteIfExists(path);
+    }
+
+    private Set<File> enumerateFiles(File file, boolean includeChildDir, Set<File> fileSet) {
+        if (file.isDirectory()) {
+            if (includeChildDir) {
+                for (var child : file.listFiles()) {
+                    fileSet.addAll(enumerateFiles(child, includeChildDir, fileSet));
+                }
+            }
+
+            fileSet.addAll(Arrays.stream(file.listFiles()).toList());
+        } else {
+            fileSet.add(file);
+        }
+
+        return fileSet;
     }
 
     @Override
@@ -191,7 +233,7 @@ public final class SyncLocator implements IModLocator {
     public boolean isValid(IModFile modFile) {
         return !Arrays.stream(modManifest.mods).noneMatch(m -> {
             try {
-                return m.name.equals(modFile.getFileName())
+                return m.path.equals(modFile.getFileName())
                         && m.checksum.equalsIgnoreCase(
                         DigestUtils.sha256Hex(FileUtils.readFileToByteArray(modFile.getFilePath().toFile())));
             } catch (IOException ignored) {

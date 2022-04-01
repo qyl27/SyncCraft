@@ -122,7 +122,7 @@ public final class SyncLocator implements IModLocator {
     private void syncMods() throws Exception {
         // Check mod lists.
         LOG.info("Checking mods.");
-        var shouldDownload = checkEntries(gameDirectory.resolve("mods").toFile(),
+        var shouldDownload = checkEntries(gameDirectory.resolve(config.directory).toFile(),
                 Arrays.stream(modManifest.mods).toList(), true);
 
         LOG.info("Ready for sync mods.");
@@ -143,24 +143,25 @@ public final class SyncLocator implements IModLocator {
 
         var shouldDownload = new ArrayList<>(entries);
 
-        // Check if not weak sync nor config.
-        if (!(config.weakSync || isMod)) {
-            for (var file : filesLocal) {
-                // Remove mismatched files.
-                if (entries.stream().noneMatch(m -> {
-                    try {
-                        if (m.path.equals(file.getName())
-                                && m.checksum.equalsIgnoreCase(
-                                DigestUtils.sha256Hex(FileUtils.readFileToByteArray(file)))) {
-                            shouldDownload.remove(m);
-                            return true;
-                        } else {
-                            return false;
-                        }
-                    } catch (IOException ignored) {
+        for (var file : filesLocal) {
+            // Check files one by one.
+            if (entries.stream().noneMatch(m -> {
+                try {
+                    if (m.path.equals(file.getName())
+                            && m.checksum.equalsIgnoreCase(
+                            DigestUtils.sha256Hex(FileUtils.readFileToByteArray(file)))) {
+                        shouldDownload.remove(m);
+                        return true;
+                    } else {
                         return false;
                     }
-                })) {
+                } catch (IOException ignored) {
+                    return false;
+                }
+            })) {
+                // Check if not weak sync nor config.
+                if (!config.weakSync && isMod) {
+                    // Delete mismatched files.
                     var result = file.delete();
                     if (!result) {
                         LOG.error("Cannot delete mismatched file " + file.getName() + " .");
@@ -169,6 +170,7 @@ public final class SyncLocator implements IModLocator {
                 }
             }
         }
+
         return shouldDownload;
     }
 

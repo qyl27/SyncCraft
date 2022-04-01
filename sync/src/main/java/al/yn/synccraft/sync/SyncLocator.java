@@ -135,12 +135,16 @@ public final class SyncLocator implements IModLocator {
     }
 
     private List<ModManifest.Entry> checkEntries(File dir, List<ModManifest.Entry> entries, boolean isMod) {
+        if ((!isMod) && (!config.syncConfig)) {
+            return new ArrayList<>();
+        }
+
         var filesLocal = enumerateFiles(dir, !isMod, new HashSet<>());
 
         var shouldDownload = new ArrayList<>(entries);
 
-        // Check if weak sync.
-        if (!config.weakSync) {
+        // Check if not weak sync nor config.
+        if (!(config.weakSync || isMod)) {
             for (var file : filesLocal) {
                 // Remove mismatched files.
                 if (entries.stream().noneMatch(m -> {

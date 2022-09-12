@@ -1,3 +1,12 @@
-include "sync"
-include "mod"
+pluginManagement {
+    repositories {
+        maven { url "https://maven.architectury.dev/" }
+        maven { url "https://maven.fabricmc.net/" }
+        gradlePluginPortal()
+        maven { url = 'https://maven.minecraftforge.net/' }
+    }
+}
 
+rootProject.name = 'SyncCraft'
+
+include "sync"

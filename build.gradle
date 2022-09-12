@@ -1,184 +1,110 @@
-buildscript {
-    repositories {
-        // These repositories are only for Gradle plugins, put any other repositories in the repository block further below
-        maven {
-            url = 'https://maven.minecraftforge.net'
-        }
-        maven {
-            name = 'ParchmentMC'
-            url = 'https://maven.parchmentmc.org/'
-        }
-        mavenCentral()
-        maven {
-            url = "https://plugins.gradle.org/m2/"
-        }
-    }
-    dependencies {
-        classpath "gradle.plugin.com.github.johnrengelman:shadow:7.1.0"
-        classpath group: 'net.minecraftforge.gradle', name: 'ForgeGradle', version: '5.1.+', changing: true
-        classpath group: 'org.parchmentmc', name: 'librarian', version: '1.+'
-    }
+plugins {
+    id 'eclipse'
+    id 'maven-publish'
+    id "architectury-plugin" version "3.4-SNAPSHOT"
+    id "dev.architectury.loom" version "0.12.0-SNAPSHOT" apply false
+    id 'com.github.johnrengelman.shadow' version '7.1.2'
 }
 
 apply plugin: 'java'
 
-version = '1.18.2-1.1.0'
-group = 'al.yn.synccraft' // http://maven.apache.org/guides/mini/guide-naming-conventions.html
+group = 'cx.rain.synccraft' // http://maven.apache.org/guides/mini/guide-naming-conventions.html
 archivesBaseName = 'synccraft'
+version = '1.19.2-2.0.0'
+
+if (System.getenv("JITPACK") == "true") {
+    version += "-${System.getenv("GIT_BRANCH")}"
+    version += "-${System.getenv("GIT_COMMIT")}"
+}
+
+var release = false
+if (release || project.hasProperty("SC_RELEASE")) {
+    version += '-release'
+} else {
+    version += '-dev'
+}
+
+java.toolchain.languageVersion = JavaLanguageVersion.of(17)
+
+println "Java: ${System.getProperty 'java.version'}, JVM: ${System.getProperty 'java.vm.version'} (${System.getProperty 'java.vendor'}), Arch: ${System.getProperty 'os.arch'}"
 
 allprojects {
-    apply plugin: 'net.minecraftforge.gradle'
-    apply plugin: 'org.parchmentmc.librarian.forgegradle'
-// Only edit below this line, the above code adds and enables the necessary things for Forge to be setup.
-    apply plugin: 'eclipse'
+    apply plugin: 'architectury-plugin'
     apply plugin: 'maven-publish'
-    apply plugin: "com.github.johnrengelman.shadow"
+    apply plugin: 'dev.architectury.loom'
 
-// Mojang ships Java 16 to end users in 1.17+ instead of Java 8 in 1.16 or lower, so your mod should target Java 16.
-    java.toolchain.languageVersion = JavaLanguageVersion.of(17)
+    architectury {
+        platformSetupLoomIde()
+        forge()
+    }
 
-    println('Java: ' + System.getProperty('java.version') + ' JVM: ' + System.getProperty('java.vm.version') + '(' + System.getProperty('java.vendor') + ') Arch: ' + System.getProperty('os.arch'))
-    minecraft {
-        // The mappings can be changed at any time and must be in the following format.
-        // Channel:   Version:
-        // snapshot   YYYYMMDD   Snapshot are built nightly.
-        // stable     #          Stables are built at the discretion of the MCP team.
-        // official   MCVersion  Official field/method names from Mojang mapping files
-        //
-        // You must be aware of the Mojang license when using the 'official' mappings.
-        // See more information here: https://github.com/MinecraftForge/MCPConfig/blob/master/Mojang.md
-        //
-        // Use non-default mappings at your own risk. They may not always work.
-        // Simply re-run your setup task after changing the mappings to update your workspace.
-        mappings channel: 'parchment', version: '2022.03.13-1.18.2'
+    loom {
+        silentMojangMappingsLicense()
 
-        // accessTransformer = file('src/main/resources/META-INF/accesstransformer.cfg') // Currently, this location cannot be changed from the default.
-
-        // Default run configurations.
-        // These can be tweaked, removed, or duplicated as needed.
-        runs {
-            client {
-                workingDirectory project.file('run')
-
-                // Recommended logging data for a userdev environment
-                // The markers can be added/remove as needed separated by commas.
-                // "SCAN": For mods scan.
-                // "REGISTRIES": For firing of registry events.
-                // "REGISTRYDUMP": For getting the contents of all registries.
-                property 'forge.logging.markers', 'REGISTRIES'
-
-                // Recommended logging level for the console
-                // You can set various levels here.
-                // Please read: https://stackoverflow.com/questions/2031163/when-to-use-the-different-log-levels
-                property 'forge.logging.console.level', 'debug'
-
-                mods {
-                    synccraft {
-                        source sourceSets.main
-                    }
-                }
+        forge {
+            dataGen {
+                mod 'synccraft'
             }
+        }
 
-            server {
-                workingDirectory project.file('run')
-
-                // Recommended logging data for a userdev environment
-                // The markers can be added/remove as needed separated by commas.
-                // "SCAN": For mods scan.
-                // "REGISTRIES": For firing of registry events.
-                // "REGISTRYDUMP": For getting the contents of all registries.
-                property 'forge.logging.markers', 'REGISTRIES'
-
-                // Recommended logging level for the console
-                // You can set various levels here.
-                // Please read: https://stackoverflow.com/questions/2031163/when-to-use-the-different-log-levels
-                property 'forge.logging.console.level', 'debug'
-
-                mods {
-                    synccraft {
-                        source sourceSets.main
-                    }
-                }
-            }
-
+        launches {
             data {
-                workingDirectory project.file('run')
-
-                // Recommended logging data for a userdev environment
-                // The markers can be added/remove as needed separated by commas.
-                // "SCAN": For mods scan.
-                // "REGISTRIES": For firing of registry events.
-                // "REGISTRYDUMP": For getting the contents of all registries.
-                property 'forge.logging.markers', 'REGISTRIES'
-
-                // Recommended logging level for the console
-                // You can set various levels here.
-                // Please read: https://stackoverflow.com/questions/2031163/when-to-use-the-different-log-levels
-                property 'forge.logging.console.level', 'debug'
-
-                // Specify the modid for data generation, where to output the resulting resource, and where to look for existing resources.
-                args '--mod', 'synccraft', '--all', '--output', file('src/generated/resources/'), '--existing', file('src/main/resources/')
-
-                mods {
-                    synccraft {
-                        source sourceSets.main
-                    }
-                }
+                arg "--existing", file("src/main/resources").absolutePath
             }
         }
     }
 
-// Include resources generated by data generators.
-    sourceSets.main.resources { srcDir 'src/generated/resources' }
+    sourceSets.main.resources {
+        srcDir 'src/generated/resources'
+    }
+
+    processResources {
+        duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    }
 
     repositories {
-        // Put repositories for dependencies here
-        // ForgeGradle automatically adds the Forge maven and Maven Central for you
+        maven {
+            name = 'Jitpack'
+            url = 'https://jitpack.io'
+        }
 
-        // If you have mod jar dependencies in ./libs, you can declare them as a repository like so:
-        // flatDir {
-        //     dir 'libs'
-        // }
+        maven {
+            name = 'ParchmentMC'
+            url = 'https://maven.parchmentmc.org'
+        }
+
+        flatDir {
+            dir 'libs'
+        }
+    }
+
+    configurations.all {
+        resolutionStrategy.cacheChangingModulesFor 0, 'seconds'
     }
 
     dependencies {
-        // Specify the version of Minecraft to use. If this is any group other than 'net.minecraft', it is assumed
-        // that the dep is a ForgeGradle 'patcher' dependency, and its patches will be applied.
-        // The userdev artifact is a special name and will get all sorts of transformations applied to it.
-        minecraft 'net.minecraftforge:forge:1.18.2-40.0.32'
+        minecraft "com.mojang:minecraft:1.19.2"
+        forge "net.minecraftforge:forge:1.19.2-43.1.15"
 
-        // Real mod deobf dependency examples - these get remapped to your current mappings
-        // compileOnly fg.deobf("mezz.jei:jei-${mc_version}:${jei_version}:api") // Adds JEI API as a compile dependency
-        // runtimeOnly fg.deobf("mezz.jei:jei-${mc_version}:${jei_version}") // Adds the full JEI mod as a runtime dependency
-        // implementation fg.deobf("com.tterrag.registrate:Registrate:MC${mc_version}-${registrate_version}") // Adds registrate as a dependency
-
-        // Examples using mod jars from ./libs
-        // implementation fg.deobf("blank:coolmod-${mc_version}:${coolmod_version}")
-
-        // For more info...
-        // http://www.gradle.org/docs/current/userguide/artifact_dependencies_tutorial.html
-        // http://www.gradle.org/docs/current/userguide/dependency_management.html
-    }
-
-// Example for how to get properties into the manifest for reading at runtime.
-    jar {
-        manifest {
-            attributes([
-                    "Specification-Title"   : "synccraft",
-                    "Specification-Vendor"  : "qyl27(Infinity_rain)",
-                    "Specification-Version" : "2", // We are version 1 of ourselves
-                    "Implementation-Title"  : project.name,
-                    "Implementation-Version": project.jar.archiveVersion,
-                    "Implementation-Vendor" : "qyl27(Infinity_rain)"
-            ])
+        mappings loom.layered() {
+            officialMojangMappings()
+            parchment("org.parchmentmc.data:parchment-1.19.2:2022.08.28@zip")
         }
     }
 
-// Example configuration to allow publishing using the maven-publish plugin
-// This is the preferred method to reobfuscate your jar file
-    jar.finalizedBy('reobfJar')
-// However if you are in a multi-project build, dev time needs unobfed jar files, so you can delay the obfuscation until publishing by doing
-// publish.dependsOn('reobfJar')
+    jar {
+        manifest {
+            attributes([
+                    "Specification-Title"     : "synccraft",
+                    "Specification-Vendor"    : "qyl27",
+                    "Specification-Version"   : "1", // We are version 1 of ourselves
+                    "Implementation-Title"    : project.name,
+                    "Implementation-Version"  : project.jar.archiveVersion,
+                    "Implementation-Vendor"   : "qyl27",
+                    "Implementation-Timestamp": new Date().format("yyyy-MM-dd'T'HH:mm:ssZ")
+            ])
+        }
+    }
 
     publishing {
         publications {
@@ -192,6 +118,10 @@ allprojects {
             }
         }
     }
+
+    tasks.withType(JavaCompile).configureEach {
+        options.encoding = 'UTF-8'
+    }
 }
 
 configurations {
@@ -203,21 +133,26 @@ dependencies {
     library project(":sync"), {
         transitive = false
     }
-
-    library project(":mod")
 }
 
 shadowJar {
     dependencies {
         include project(":sync")
-        include project(":mod")
     }
 }
 
 jar.finalizedBy('shadowJar')
 
-minecraft.runs.all {
-    lazyToken('minecraft_classpath') {
-        configurations.library.copyRecursive().resolve().collect { it.absolutePath }.join(File.pathSeparator)
+import org.apache.tools.ant.filters.ReplaceTokens
+
+task injectString(type: Copy) {
+    from ('src/main/java') {
+        include '**/*.java'
+        filter(ReplaceTokens, tokens: [version: project.version])
     }
+    into "${buildDir}/generated/java"
 }
+
+// qyl27: It only works with main.
+compileJava.source = "${buildDir}/generated/java"
+compileJava.dependsOn injectString

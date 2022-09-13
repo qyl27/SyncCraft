@@ -9,7 +9,7 @@ plugins {
 apply plugin: 'java'
 
 group = 'cx.rain.synccraft' // http://maven.apache.org/guides/mini/guide-naming-conventions.html
-archivesBaseName = 'synccraft'
+archivesBaseName = 'SyncCraft'
 version = '1.19.2-2.0.0'
 
 if (System.getenv("JITPACK") == "true") {
@@ -29,6 +29,7 @@ java.toolchain.languageVersion = JavaLanguageVersion.of(17)
 println "Java: ${System.getProperty 'java.version'}, JVM: ${System.getProperty 'java.vm.version'} (${System.getProperty 'java.vendor'}), Arch: ${System.getProperty 'os.arch'}"
 
 allprojects {
+    apply plugin: 'java'
     apply plugin: 'architectury-plugin'
     apply plugin: 'maven-publish'
     apply plugin: 'dev.architectury.loom'
@@ -54,10 +55,6 @@ allprojects {
         }
     }
 
-    sourceSets.main.resources {
-        srcDir 'src/generated/resources'
-    }
-
     processResources {
         duplicatesStrategy = DuplicatesStrategy.EXCLUDE
     }
@@ -73,13 +70,9 @@ allprojects {
             url = 'https://maven.parchmentmc.org'
         }
 
-        flatDir {
-            dir 'libs'
-        }
-    }
-
-    configurations.all {
-        resolutionStrategy.cacheChangingModulesFor 0, 'seconds'
+//        flatDir {
+//            dir 'libs'
+//        }
     }
 
     dependencies {
@@ -92,67 +85,65 @@ allprojects {
         }
     }
 
-    jar {
-        manifest {
-            attributes([
-                    "Specification-Title"     : "synccraft",
-                    "Specification-Vendor"    : "qyl27",
-                    "Specification-Version"   : "1", // We are version 1 of ourselves
-                    "Implementation-Title"    : project.name,
-                    "Implementation-Version"  : project.jar.archiveVersion,
-                    "Implementation-Vendor"   : "qyl27",
-                    "Implementation-Timestamp": new Date().format("yyyy-MM-dd'T'HH:mm:ssZ")
-            ])
-        }
-    }
-
-    publishing {
-        publications {
-            mavenJava(MavenPublication) {
-                artifact jar
-            }
-        }
-        repositories {
-            maven {
-                url "file://${project.projectDir}/mcmodsrepo"
-            }
-        }
-    }
-
     tasks.withType(JavaCompile).configureEach {
         options.encoding = 'UTF-8'
     }
 }
 
-configurations {
-    library
-    implementation.extendsFrom library
+configurations.all {
+    resolutionStrategy.cacheChangingModulesFor 0, 'seconds'
 }
 
+sourceSets.main.resources {
+    srcDir 'src/generated/resources'
+}
+
+//configurations {
+//    library
+//    modImplementation.extendsFrom library
+//}
+
 dependencies {
-    library project(":sync"), {
-        transitive = false
-    }
+    implementation project(":sync")
 }
 
 shadowJar {
     dependencies {
         include project(":sync")
+
+        exclude("forge-client-extra.jar")
     }
 }
 
 jar.finalizedBy('shadowJar')
 
-import org.apache.tools.ant.filters.ReplaceTokens
-
-task injectString(type: Copy) {
-    from ('src/main/java') {
-        include '**/*.java'
-        filter(ReplaceTokens, tokens: [version: project.version])
+jar {
+    manifest {
+        attributes([
+                "Specification-Title"     : "synccraft",
+                "Specification-Vendor"    : "qyl27",
+                "Specification-Version"   : "1", // We are version 1 of ourselves
+                "Implementation-Title"    : project.name,
+                "Implementation-Version"  : project.jar.archiveVersion,
+                "Implementation-Vendor"   : "qyl27",
+                "Implementation-Timestamp": new Date().format("yyyy-MM-dd'T'HH:mm:ssZ")
+        ])
     }
-    into "${buildDir}/generated/java"
 }
 
-// qyl27: It only works with main.
-compileJava.source = "${buildDir}/generated/java"
-compileJava.dependsOn injectString
+publishing {
+    publications {
+        mavenJava(MavenPublication) {
+            artifact jar
+        }
+    }
+    repositories {
+        maven {
+            url "file://${project.projectDir}/mcmodsrepo"
+        }
+    }
+}
+
+project.afterEvaluate {
+    project(":sync").tasks.prepareRemapJar.dependsOn = []
+}

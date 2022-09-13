@@ -13,9 +13,8 @@ displayURL="https://github.com/qyl27/SyncCraft"
 authors="qyl27"
 displayTest="NONE"
 description='''
-For sync mods.
+For syncing mods.
 '''
-
 [[dependencies.synccraft]]
 modId="forge"
 mandatory=true

@@ -1,0 +1,20 @@
+import org.apache.tools.ant.filters.ReplaceTokens
+
+task injectString(type: Copy) {
+    from ('src/main/java') {
+        include '**/*.java'
+        filter(ReplaceTokens, tokens: [version: rootProject.version])
+    }
+    into "${buildDir}/generated/java"
+}
+
+compileJava.source = "${buildDir}/generated/java"
+compileJava.dependsOn injectString
+
+sourceSets {
+    main {
+        java {
+            srcDir 'sync/src/main/java'
+        }
+    }
+}

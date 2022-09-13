@@ -35,7 +35,7 @@ public class SyncLocator implements IModLocator {
     private boolean shouldLoadSyncedMods = false;
 
     public SyncLocator() throws Exception {
-        LOGGER.info("Initializing SyncCraft ver:" + Constants.VERSION);
+        LOGGER.info("Initializing SyncCraft ver: " + Constants.VERSION);
 
         var dist = Launcher.INSTANCE.environment().getProperty(Environment.Keys.DIST.get());
         assert dist != null && dist.isPresent();
@@ -61,7 +61,7 @@ public class SyncLocator implements IModLocator {
         }
         url += "mods.json";
 
-        var manifestString = IOUtils.toString(new URL(url), StandardCharsets.UTF_8);
+//        var manifestString = IOUtils.toString(new URL(url), StandardCharsets.UTF_8);
         // Todo.
     }
 

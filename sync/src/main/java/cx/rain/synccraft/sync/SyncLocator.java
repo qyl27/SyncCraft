@@ -25,6 +25,7 @@ import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
@@ -114,9 +115,21 @@ public class SyncLocator implements IModLocator {
             return;
         }
 
+        var cacheTimestamp = syncDirectory.resolve("timestamp.cache");
+
+        if (cacheTimestamp.toFile().exists()) {
+            var cacheTimestampStr = Files.readString(cacheTimestamp);
+            if (manifest.timestamp.equals(cacheTimestampStr)) {
+                LOGGER.info("Same timestamp in cache, skip sync.");
+                return;
+            }
+        }
+
         doModsSync();
         doConfigsSync();
         doResourcesSync();
+
+        Files.writeString(cacheTimestamp, manifest.timestamp);
 
         shouldLoadSyncedMods = true;
     }
@@ -219,14 +232,5 @@ public class SyncLocator implements IModLocator {
     @Override
     public boolean isValid(IModFile modFile) {
         return true;
-//        return !Arrays.stream(modManifest.mods).noneMatch(m -> {
-//            try {
-//                return m.path.equals(modFile.getFileName())
-//                        && m.checksum.equalsIgnoreCase(
-//                        DigestUtils.sha256Hex(FileUtils.readFileToByteArray(modFile.getFilePath().toFile())));
-//            } catch (IOException ignored) {
-//                return false;
-//            }
-//        });
     }
 }

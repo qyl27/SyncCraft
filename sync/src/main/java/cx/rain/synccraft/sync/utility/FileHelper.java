@@ -28,7 +28,7 @@ public class FileHelper {
     public static boolean matchesSHA256(File file, String sha256) {
         try {
             var result = DigestUtils.sha256Hex(FileUtils.readFileToByteArray(file));
-            return sha256.equals(result);
+            return sha256.equalsIgnoreCase(result);
         } catch (IOException ex) {
             ex.printStackTrace();
             return false;

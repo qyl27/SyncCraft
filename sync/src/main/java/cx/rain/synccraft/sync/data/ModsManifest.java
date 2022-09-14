@@ -43,7 +43,7 @@ public class ModsManifest {
     }
 
     public enum ResourceType {
-        ResourcePack,
-        ShaderPack,
+        Resource,
+        Shader,
     }
 }

@@ -1,35 +1,45 @@
 package cx.rain.synccraft.sync;
 
+import com.google.gson.Gson;
+import com.google.gson.JsonSyntaxException;
 import cpw.mods.modlauncher.Launcher;
 import cpw.mods.modlauncher.api.IEnvironment;
 import cx.rain.synccraft.Constants;
 import cx.rain.synccraft.sync.config.SyncConfigManager;
+import cx.rain.synccraft.sync.data.ModsManifest;
+import cx.rain.synccraft.sync.utility.FileHelper;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.forgespi.Environment;
 import net.minecraftforge.forgespi.locating.IModFile;
 import net.minecraftforge.forgespi.locating.IModLocator;
-import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.io.FileUtils;
+import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.io.IOUtils;
+import org.apache.maven.artifact.versioning.DefaultArtifactVersion;
+import org.apache.maven.artifact.versioning.VersionRange;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.File;
 import java.io.IOException;
+import java.net.MalformedURLException;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
 
 public class SyncLocator implements IModLocator {
     private static final Logger LOGGER = LoggerFactory.getLogger(Constants.NAME);
+    private static final Gson GSON = new Gson();
 
     private Path gameDirectory;
+    private Path syncDirectory;
     private SyncConfigManager configManager;
+
+    private ModsManifest manifest;
 
     private IModLocator origin;
     private boolean shouldLoadSyncedMods = false;
@@ -42,8 +52,14 @@ public class SyncLocator implements IModLocator {
         if (dist.get() == Dist.CLIENT) {
             onClient();
         } else {
-            LOGGER.error("Not supported server yet.");
-            throw new RuntimeException("Not supported server yet.");
+            LOGGER.error("Not supported in server yet.");
+            throw new RuntimeException("Not supported in server yet.");
+        }
+
+        if (!shouldLoadSyncedMods) {
+            LOGGER.info("Load as normal.");
+        } else {
+            LOGGER.info("Loading synced mods.");
         }
     }
 
@@ -55,13 +71,114 @@ public class SyncLocator implements IModLocator {
 
         configManager = new SyncConfigManager(gameDirectory);
 
+        syncDirectory = gameDirectory.resolve(configManager.getConfig().directory);
+
         var url = configManager.getConfig().server;
         if (!url.endsWith("/")) {
             url += "/";
         }
         url += "mods.json";
 
-//        var manifestString = IOUtils.toString(new URL(url), StandardCharsets.UTF_8);
+        try {
+            var manifestString = IOUtils.toString(new URL(url), StandardCharsets.UTF_8);
+            manifest = GSON.fromJson(manifestString, ModsManifest.class);
+        } catch (MalformedURLException ex) {
+            LOGGER.warn("URL cannot be parse. Is it correct?");
+            return;
+        } catch (IOException ex) {
+            LOGGER.warn("Cannot load mods manifest from server.");
+            return;
+        } catch (JsonSyntaxException ex) {
+            LOGGER.warn("Cannot parse mods manifest file.");
+            return;
+        }
+
+        var acceptMod = VersionRange.createFromVersionSpec(manifest.acceptClientMod);
+        var modVersion = new DefaultArtifactVersion(Constants.VERSION);
+        if (configManager.getConfig().configVersion != Constants.SUPPORTED_CONFIG_VERSION
+                || !acceptMod.containsVersion(modVersion)) {
+            LOGGER.error("Mod version is not supported, please contract with server owner.");
+            return;
+        }
+
+        var acceptPackVersions = VersionRange.createFromVersionSpec(manifest.acceptClientPack);
+        var packVersion = new DefaultArtifactVersion(configManager.getConfig().packVersion);
+        if (manifest.manifestVersion != Constants.SUPPORTED_MANIFEST_VERSION
+                || !acceptPackVersions.containsVersion(packVersion)) {
+            LOGGER.error("Pack version is not supported, please contract with server owner.");
+            throw new RuntimeException(manifest.notSupportedMessage);
+        }
+
+        if (!configManager.getConfig().serverName.equals(manifest.serverName)) {
+            LOGGER.error("Mismatched server name, we will not sync for it.");
+            return;
+        }
+
+        doModsSync();
+        doConfigsSync();
+        doResourcesSync();
+
+        shouldLoadSyncedMods = true;
+    }
+
+    private void doModsSync() throws Exception {
+        LOGGER.info("Checking mods.");
+
+        if (manifest.mods.length == 0) {
+            LOGGER.info("No mods to sync.");
+            return;
+        }
+
+        var modDir = syncDirectory.resolve("mods").toFile();
+        var modsToDownload = new ArrayList<ModsManifest.ModEntry>();
+        modsToDownload.addAll(List.of(manifest.mods));
+
+        if (manifest.forceMods) {
+            var filesToDelete = new HashSet<File>();
+            for (var modFile : FileHelper.enumerateFiles(modDir, false, new HashSet<>())) {
+                var fileName = FilenameUtils.getName(modFile.getName());
+
+                var modEntries = Arrays.stream(manifest.mods)
+                        .filter(m -> m.fileName.equals(fileName)
+                                && FileHelper.matchesSHA256(modFile, m.sha256))
+                        .collect(Collectors.toSet());
+
+                if (modEntries.isEmpty()) {
+                    LOGGER.info("Mod file " + fileName + " is not exists in manifest file. Deleting.");
+                    filesToDelete.add(modFile);
+                } else {
+                    if (modEntries.size() > 1) {
+                        throw new RuntimeException("Illegal mods manifest file.");
+                    }
+
+                    modsToDownload.add(modEntries.stream().findFirst().orElseThrow());
+                }
+            }
+
+            for (var file : filesToDelete) {
+                file.delete();
+            }
+        }
+
+        for (var modEntry : modsToDownload) {
+            var modFile = new File(modDir, modEntry.fileName);
+            if (modFile.exists()) {
+                LOGGER.info("Mod file " + modEntry.fileName + " is already exists.");
+                continue;
+            }
+
+            LOGGER.info("Downloading mod " + modEntry.fileName + " from remote server.");
+            var url = new URL(modEntry.url);
+            FileUtils.copyURLToFile(url, modFile);
+            LOGGER.info("Downloaded mod to " + modFile.getName() + " from remote server.");
+        }
+    }
+
+    private void doConfigsSync() {
+        // Todo.
+    }
+
+    private void doResourcesSync() {
         // Todo.
     }
 
@@ -88,7 +205,7 @@ public class SyncLocator implements IModLocator {
 
     @Override
     public void initArguments(Map<String, ?> arguments) {
-        var modDir = gameDirectory.resolve(configManager.getConfig().directory);
+        var modDir = syncDirectory.resolve("mods");
         if (!modDir.toFile().exists()) {
             modDir.toFile().mkdirs();
         }
@@ -96,7 +213,7 @@ public class SyncLocator implements IModLocator {
         origin = Launcher.INSTANCE.environment()
                 .getProperty(Environment.Keys.MODDIRECTORYFACTORY.get())
                 .orElseThrow(() -> new RuntimeException("There is no Mod Directory Factory!"))
-                .build(modDir, Constants.NAME + "Mods Directory");
+                .build(modDir, Constants.NAME + " Mods Directory");
     }
 
     @Override

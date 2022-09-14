@@ -8,7 +8,7 @@ plugins {
 
 apply plugin: 'java'
 
-group = 'cx.rain.synccraft' // http://maven.apache.org/guides/mini/guide-naming-conventions.html
+group = 'cx.rain.synccraft'
 archivesBaseName = 'SyncCraft'
 version = '1.19.2-2.0.0'
 
@@ -70,9 +70,9 @@ allprojects {
             url = 'https://maven.parchmentmc.org'
         }
 
-//        flatDir {
-//            dir 'libs'
-//        }
+        flatDir {
+            dir 'libs'
+        }
     }
 
     dependencies {
@@ -97,11 +97,6 @@ configurations.all {
 sourceSets.main.resources {
     srcDir 'src/generated/resources'
 }
-
-//configurations {
-//    library
-//    modImplementation.extendsFrom library
-//}
 
 dependencies {
     implementation project(":sync")

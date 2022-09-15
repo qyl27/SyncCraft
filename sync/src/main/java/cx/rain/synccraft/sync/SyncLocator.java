@@ -9,6 +9,7 @@ import cx.rain.synccraft.sync.config.SyncConfigManager;
 import cx.rain.synccraft.sync.data.ModsManifest;
 import cx.rain.synccraft.sync.utility.FileHelper;
 import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.forgespi.Environment;
 import net.minecraftforge.forgespi.locating.IModFile;
 import net.minecraftforge.forgespi.locating.IModLocator;
@@ -187,12 +188,61 @@ public class SyncLocator implements IModLocator {
         }
     }
 
-    private void doConfigsSync() {
-        // Todo.
+    private void doConfigsSync() throws Exception {
+        Set<ModsManifest.LocalRelativeFileEntry> filesToDownload;
+        if (manifest.forceConfigs) {
+            filesToDownload = forceFiles(manifest.configs);
+        } else {
+            filesToDownload = new HashSet<>(List.of(manifest.configs));
+        }
+
+        downloadFiles(filesToDownload);
     }
 
-    private void doResourcesSync() {
-        // Todo.
+    private void doResourcesSync() throws Exception {
+        Set<ModsManifest.LocalRelativeFileEntry> filesToDownload;
+        if (manifest.forceResources) {
+            filesToDownload = forceFiles(manifest.resources);
+        } else {
+            filesToDownload = new HashSet<>(List.of(manifest.resources));
+        }
+
+        downloadFiles(filesToDownload);
+    }
+
+    private Set<ModsManifest.LocalRelativeFileEntry> forceFiles(ModsManifest.LocalRelativeFileEntry[] files) {
+        var filesToDownload = new HashSet<ModsManifest.LocalRelativeFileEntry>();
+
+        for (var fileEntry : files) {
+            var localFile = gameDirectory.resolve(fileEntry.localRelativePath).toFile();
+            var fileName = FilenameUtils.getName(localFile.getName());
+
+            if (!FileHelper.matchesSHA256(localFile, fileEntry.sha256)) {
+                LOGGER.info("File " + fileName + " is not exists in manifest file. Deleting.");
+                localFile.delete();
+            } else {
+                filesToDownload.add(fileEntry);
+            }
+        }
+
+        return filesToDownload;
+    }
+
+    private void downloadFiles(Set<ModsManifest.LocalRelativeFileEntry> files) throws Exception {
+        for (var fileEntry : files) {
+            var localFile = new File(fileEntry.localRelativePath);
+            var fileName = FilenameUtils.getName(localFile.getName());
+
+            if (localFile.exists()) {
+                LOGGER.info("File " + fileName + " is already exists.");
+                continue;
+            }
+
+            LOGGER.info("Downloading file " + fileName + " from remote server.");
+            var url = new URL(fileEntry.url);
+            FileUtils.copyURLToFile(url, localFile);
+            LOGGER.info("Downloaded file to " + fileName + " from remote server.");
+        }
     }
 
     @Override

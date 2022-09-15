@@ -12,8 +12,8 @@ public class ModsManifest {
     public String timestamp;    // 10-digits timestamp, which is the generation time of the manifest file.
 
     public boolean forceMods;   // Usually true.
-    public boolean forceConfigs;
-    public boolean forceResources;
+    public boolean forceConfigs;    // Usually true.
+    public boolean forceResources;  // Usually true.
 
     public ModEntry[] mods;
     public ConfigEntry[] configs;
@@ -39,7 +39,7 @@ public class ModsManifest {
     }
 
     public class ResourceEntry extends LocalRelativeFileEntry {
-        public ResourceType type;
+        public ResourceType type;   // unused.
     }
 
     public enum ResourceType {

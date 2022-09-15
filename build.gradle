@@ -13,8 +13,7 @@ archivesBaseName = 'SyncCraft'
 version = '1.19.2-2.0.0'
 
 if (System.getenv("JITPACK") == "true") {
-    version += "-${System.getenv("GIT_BRANCH")}"
-    version += "-${System.getenv("GIT_COMMIT")}"
+    version += "-${System.getenv("VERSION")}"
 }
 
 var release = false

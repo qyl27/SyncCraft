@@ -8,8 +8,6 @@ import cx.rain.synccraft.Constants;
 import cx.rain.synccraft.sync.config.SyncConfigManager;
 import cx.rain.synccraft.sync.data.ModsManifest;
 import cx.rain.synccraft.sync.utility.FileHelper;
-import net.minecraftforge.api.distmarker.Dist;
-import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.forgespi.Environment;
 import net.minecraftforge.forgespi.locating.IModFile;
 import net.minecraftforge.forgespi.locating.IModLocator;
@@ -49,13 +47,29 @@ public class SyncLocator implements IModLocator {
     public SyncLocator() throws Exception {
         LOGGER.info("Initializing SyncCraft ver: " + Constants.VERSION);
 
+        gameDirectory = Launcher.INSTANCE.environment()
+                .getProperty(IEnvironment.Keys.GAMEDIR.get())
+                .orElse(Paths.get("."));
+
         var dist = Launcher.INSTANCE.environment().getProperty(Environment.Keys.DIST.get());
         assert dist != null && dist.isPresent();
-        if (dist.get() == Dist.CLIENT) {
-            onClient();
+        if (dist.get().isClient()) {
+            configManager = new SyncConfigManager(gameDirectory, false);
+            onConsumer();
         } else {
-            LOGGER.error("Not supported in server yet.");
-            throw new RuntimeException("Not supported in server yet.");
+            configManager = new SyncConfigManager(gameDirectory, true);
+            if (configManager.hasServerConfig()) {
+                if (configManager.getServerConfig().workingMode.equalsIgnoreCase(Constants.WORKING_MODE_PROVIDER)) {
+                    // Todo.
+                    LOGGER.error("Not implemented in server yet.");
+                    throw new RuntimeException("Not implemented in server yet.");
+                } else {
+                    onConsumer();
+                }
+            } else {
+                LOGGER.error("Why no server config? It should not be happen!");
+                throw new RuntimeException("Why no server config? It should not be happen!");
+            }
         }
 
         if (!shouldLoadSyncedMods) {
@@ -65,14 +79,8 @@ public class SyncLocator implements IModLocator {
         }
     }
 
-    private void onClient() throws Exception {
+    private void onConsumer() throws Exception {
         // Load configs.
-        gameDirectory = Launcher.INSTANCE.environment()
-                .getProperty(IEnvironment.Keys.GAMEDIR.get())
-                .orElse(Paths.get("."));
-
-        configManager = new SyncConfigManager(gameDirectory);
-
         syncDirectory = gameDirectory.resolve(configManager.getConfig().directory);
 
         var url = configManager.getConfig().server;
@@ -128,7 +136,10 @@ public class SyncLocator implements IModLocator {
 
         doModsSync();
         doConfigsSync();
-        doResourcesSync();
+
+        if (!configManager.isServer()) {
+            doResourcesSync();
+        }
 
         Files.writeString(cacheTimestamp, manifest.timestamp);
 

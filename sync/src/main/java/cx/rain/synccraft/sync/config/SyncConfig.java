@@ -1,6 +1,6 @@
 package cx.rain.synccraft.sync.config;
 
-public class SyncConfig {
+public class SyncConfig implements ISyncConfig {
     public int configVersion = 1;
 
     public String directory = "synccraft";

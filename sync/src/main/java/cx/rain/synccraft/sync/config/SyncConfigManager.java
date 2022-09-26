@@ -13,33 +13,63 @@ import java.nio.file.Path;
 public class SyncConfigManager {
     private static final Gson GSON = new Gson();
 
+    private boolean server = false;
+
     private File configFile;
     private SyncConfig config;
+    private File serverConfigFile;
+    private SyncServerConfig serverConfig;
 
-    public SyncConfigManager(Path dir) {
+    public SyncConfigManager(Path dir, boolean isServer) {
+        server = isServer;
+
         configFile = new File(dir.toFile(), "sync_config.json");
+        serverConfigFile = new File(dir.toFile(), "sync_server_config.json");
 
-        if (configFile.exists()) {
+        config = load(configFile, new SyncConfig());
+
+        if (isServer) {
+            serverConfig = load(serverConfigFile, new SyncServerConfig());
+        }
+    }
+
+    public <T extends ISyncConfig> T load(File file, ISyncConfig defaultObj) {
+        T config;
+        if (file.exists()) {
             try {
-                config = GSON.fromJson(Files.readString(configFile.toPath()), SyncConfig.class);
+                config = (T) GSON.fromJson(Files.readString(file.toPath()), defaultObj.getClass());
             } catch (IOException ex) {
                 throw new RuntimeException("Cannot read config file.");
             } catch (JsonSyntaxException ex) {
-                configFile.delete();
-                config = new SyncConfig();
-                save(configFile, config);
+                file.delete();
+                config = (T) defaultObj;
+                save(file, defaultObj);
             }
         } else {
-            config = new SyncConfig();
+            config = (T) defaultObj;
             save(configFile, config);
         }
+
+        return config;
+    }
+
+    public boolean isServer() {
+        return server;
     }
 
     public SyncConfig getConfig() {
         return config;
     }
 
-    private void save(File file, SyncConfig content) {
+    public boolean hasServerConfig() {
+        return serverConfig != null;
+    }
+
+    public SyncServerConfig getServerConfig() {
+        return serverConfig;
+    }
+
+    private void save(File file, ISyncConfig content) {
         try {
             FileUtils.write(file, GSON.toJson(content), StandardCharsets.UTF_8);
         } catch (IOException e) {

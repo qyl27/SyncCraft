@@ -47,7 +47,7 @@ public class SyncConfigManager {
             }
         } else {
             config = (T) defaultObj;
-            save(configFile, config);
+            save(file, config);
         }
 
         return config;

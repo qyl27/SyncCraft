@@ -13,17 +13,17 @@ displayURL="https://github.com/qyl27/SyncCraft"
 authors="qyl27"
 displayTest="NONE"
 description='''
-For syncing mods.
+Keep your mods and configs up to date.
 '''
 [[dependencies.synccraft]]
 modId="forge"
 mandatory=true
-versionRange="[43,)"
+versionRange="[45,)"
 ordering="NONE"
 side="BOTH"
 [[dependencies.synccraft]]
 modId="minecraft"
 mandatory=true
-versionRange="[1.19.2,1.20)"
+versionRange="[1.19.4,1.20)"
 ordering="NONE"
 side="BOTH"

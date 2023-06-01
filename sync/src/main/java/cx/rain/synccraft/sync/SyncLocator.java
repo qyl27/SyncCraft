@@ -1,12 +1,14 @@
 package cx.rain.synccraft.sync;
 
 import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 import com.google.gson.JsonSyntaxException;
 import cpw.mods.modlauncher.Launcher;
 import cpw.mods.modlauncher.api.IEnvironment;
 import cx.rain.synccraft.Constants;
 import cx.rain.synccraft.sync.config.SyncConfigManager;
 import cx.rain.synccraft.sync.data.ModsManifest;
+import cx.rain.synccraft.sync.gui.SyncUI;
 import cx.rain.synccraft.sync.utility.FileHelper;
 import net.minecraftforge.forgespi.Environment;
 import net.minecraftforge.forgespi.locating.IModFile;
@@ -19,6 +21,7 @@ import org.apache.maven.artifact.versioning.VersionRange;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.awt.*;
 import java.io.File;
 import java.io.IOException;
 import java.net.MalformedURLException;
@@ -28,12 +31,13 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
+import java.util.List;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 public class SyncLocator implements IModLocator {
     private static final Logger LOGGER = LoggerFactory.getLogger(Constants.NAME);
-    private static final Gson GSON = new Gson();
+    private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
 
     private Path gameDirectory;
     private Path syncDirectory;
@@ -43,6 +47,8 @@ public class SyncLocator implements IModLocator {
 
     private IModLocator origin;
     private boolean shouldLoadSyncedMods = false;
+
+    private SyncUI ui;
 
     public SyncLocator() throws Exception {
         LOGGER.info("Initializing SyncCraft ver: " + Constants.VERSION);
@@ -55,7 +61,7 @@ public class SyncLocator implements IModLocator {
         assert dist != null && dist.isPresent();
         if (dist.get().isClient()) {
             configManager = new SyncConfigManager(gameDirectory, false);
-            onConsumer();
+            onConsumer(true);
         } else {
             configManager = new SyncConfigManager(gameDirectory, true);
             if (configManager.hasServerConfig()) {
@@ -64,7 +70,7 @@ public class SyncLocator implements IModLocator {
                     LOGGER.error("Not implemented in server yet.");
                     throw new RuntimeException("Not implemented in server yet.");
                 } else {
-                    onConsumer();
+                    onConsumer(false);
                 }
             } else {
                 LOGGER.error("Why no server config? It should not be happen!");
@@ -79,7 +85,12 @@ public class SyncLocator implements IModLocator {
         }
     }
 
-    private void onConsumer() throws Exception {
+    private void onConsumer(boolean tryToShowProgressBar) throws Exception {
+
+        if (tryToShowProgressBar && !GraphicsEnvironment.isHeadless()) {
+            ui = new SyncUI(configManager);
+        }
+
         // Load configs.
         syncDirectory = gameDirectory.resolve(configManager.getConfig().directory);
 

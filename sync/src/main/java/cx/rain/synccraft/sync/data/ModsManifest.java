@@ -27,8 +27,8 @@ public class ModsManifest {
     public class ModEntry extends FileEntry {
         public String fileName;
 
-        public String modid;    // unused.
-        public String version;  // unused.
+        public String modid;    // Todo: unused for now.
+        public String version;  // Todo: unused for now.
     }
 
     public abstract class LocalRelativeFileEntry extends FileEntry {
@@ -39,7 +39,7 @@ public class ModsManifest {
     }
 
     public class ResourceEntry extends LocalRelativeFileEntry {
-        public ResourceType type;   // unused.
+        public ResourceType type;   // Todo: unused for now.
     }
 
     public enum ResourceType {
